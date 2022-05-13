@@ -5,9 +5,6 @@ try:
     from transformers import AdamW
 except:
     from pytorch_transformers import AdamW
-from optim.radam import RAdam
-from optim.radamw import RAdamW
-from optim.adabelief import AdaBelief
 from utils.average_meter import AverageMeter
 from utils.metric import get_flat_ner_fmeasure, get_nested_ner_fmeasure
 # from utils.batchify import batchify
@@ -25,7 +22,7 @@ class Trainer(nn.Module):
             self.model = self.model.to(torch.device("cuda"))
 
     def train_model(self):
-        best_test_f1 = 0
+        best_dev_f1 = 0
         train_features = self.data.train_features
         train_num = len(train_features)
         batch_size = self.args.batch_size
@@ -61,28 +58,25 @@ class Trainer(nn.Module):
                     print("     Instance: %d; loss: %.4f" % (start, avg_loss.avg), flush=True)
             gc.collect()
             torch.cuda.empty_cache()
-            # print("=== Epoch %d Test ===" % epoch, flush=True)
-            # speed, acc, p, r, f, pred_results = self.eval_model("valid")
-            # speed, acc, p, r, f, pred_results = self.eval_model("test")
-            #
-            # # speed, acc, p, r, f, pred_results = self.eval_model("train")
+            print("=== Epoch %d Test ===" % epoch, flush=True)
+            speed, acc, p, r, f, pred_results = self.eval_model("test")
+            speed, acc, p, r, f, pred_results = self.eval_model("valid")
+            # speed, acc, p, r, f, pred_results = self.eval_model("train")
             #
             # # best_param_name = self.args.generated_param_directory + "%s_%s_epoch_%d_f1_%.4f.model" % (
             # # self.model.name, self.args.ner_type, epoch, f)
             # # best_param = copy.deepcopy(self.model.state_dict())
             # # torch.save(best_param, best_param_name)
-            # """@nni.report_intermediate_result(f)"""
-            if epoch % 10 == 0:
-                best_param_name = self.args.generated_param_directory + "masked_pretrained_audio_50_epoch_%d.model" %(epoch)
-                torch.save(self.model.state_dict(), best_param_name)
-                print("Best model param are save at %s. " % (best_param_name))
-            # gc.collect()
-            # torch.cuda.empty_cache()
-        # print("Best result on test set is %f achieving at epoch %d." % (best_test_f1, best_test_result_epoch),
+            # if epoch % 10 == 0:
+                # best_param_name = self.args.generated_param_directory + "masked_pretrained_audio_50_epoch_%d.model" %(epoch)
+                # torch.save(self.model.state_dict(), best_param_name)
+                # print("Best model param are save at %s. " % (best_param_name))
+            gc.collect()
+            torch.cuda.empty_cache()
+        # print("Best result on dev set is %f achieving at epoch %d." % (best_dev_f1, best_dev_result_epoch),
         #       flush=True)
         # print("Best model param are save at %s. " % (best_param_name))
         # torch.save(best_param, best_param_name)
-        """@nni.report_final_result(best_test_f1)"""
 
     def eval_model(self, name):
         if name == "train":
@@ -261,14 +255,8 @@ class Trainer(nn.Module):
             self.optimizer = optim.Adam(grouped_params)
         elif self.args.optimizer == 'AdamW':
             self.optimizer = AdamW(grouped_params)
-        elif self.args.optimizer == "RAdam":
-            self.optimizer = RAdam(grouped_params)
-        elif self.args.optimizer == "RAdamW":
-            self.optimizer = RAdamW(grouped_params)
         elif self.args.optimizer == "SGD":
             self.optimizer = optim.SGD(grouped_params)
-        elif self.args.optimizer == "AdaBelief":
-            self.optimizer = AdaBelief(grouped_params)
         else:
             raise Exception("Invalid optimizer.")
 
